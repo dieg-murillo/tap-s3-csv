@@ -23,6 +23,14 @@ def max_physical_line_bytes(config):
     return 1024 ** 2
 
 
+def is_utf8(line):
+    try:
+        line.decode('utf-8')
+        return True
+    except UnicodeDecodeError:
+        return False
+
+
 def detect_tables_dialect(config):
     if config.get('allow_2mb_csv_lines') is True:
         max_line_bytes = max_physical_line_bytes(config)
@@ -133,6 +141,7 @@ def detect_dialect(config, s3_file, table):
         # feed selected lines to universal detector
         detector = chardet.UniversalDetector()
         detector.MINIMUM_THRESHOLD = 0.70
+        fed_lines_are_utf8 = True
 
         for i in interesting:
             # get line from cache
@@ -142,6 +151,7 @@ def detect_dialect(config, s3_file, table):
                 line = interesting_map[i]
 
             detector.feed(line)
+            fed_lines_are_utf8 = fed_lines_are_utf8 and is_utf8(line)
             if detector.done:
                 break
 
@@ -159,6 +169,11 @@ def detect_dialect(config, s3_file, table):
         # 3. just in case if encoding is None, we default to utf-8
         # 4. utf-8 is backwards compatible with ascii and supports more characters
         if confidence is None or confidence < .70 or encoding is None or encoding.lower() == 'ascii':
+            encoding = 'utf-8'
+        # 5. chardet 5 scores utf-8 with few non-ascii chars as Windows-1252 at 0.73 (WP-36668).
+        #    Single-byte encoded text with non-ascii chars is almost never valid utf-8, so trust utf-8.
+        #    utf-16/32 guesses are kept since ascii text in utf-16 is also valid utf-8 byte-wise.
+        elif fed_lines_are_utf8 and not encoding.lower().startswith('utf'):
             encoding = 'utf-8'
 
         table['encoding'] = encoding
