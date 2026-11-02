@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.10.1
+
+- Use UTF-8 when every line sampled for encoding detection is valid UTF-8 and chardet guessed a single-byte encoding. chardet 5.2 read UTF-8 files with few accented characters as Windows-1252 (`Ö` became `Ã–`).
+
 ## 3.9.1
 
 - Allow internal Sales Planning CSV imports to opt in with `allow_2mb_csv_lines: true` to physical lines through 2 MiB inclusive; imports without the flag still reject lines at 1 MiB.
